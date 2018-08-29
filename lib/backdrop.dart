@@ -147,6 +147,7 @@ class _BackdropState extends State<Backdrop>
 
   final GlobalKey _backdropKey = GlobalKey(debugLabel: 'Backdrop');
   AnimationController _controller;
+  AnimationController _menuController;
   TabController _tabController;
   var _targetOpacity;
 
@@ -157,6 +158,11 @@ class _BackdropState extends State<Backdrop>
       duration: Duration(milliseconds: 300),
       value: 1.0,
       vsync: this,
+    );
+    _menuController = AnimationController(
+      duration: Duration(milliseconds: 300),
+      value: 0.0,
+      vsync: this
     );
     _targetOpacity = 0.0;
     _tabController = TabController(length: 3, vsync: this);
@@ -318,6 +324,7 @@ class _BackdropState extends State<Backdrop>
                 setState(() {
                   _targetOpacity = 1.0;
                   _menuStatus = MenuStatus.showMenu;
+                  _menuController.forward();
                 });
               },
             ),
@@ -370,6 +377,8 @@ class _BackdropState extends State<Backdrop>
         ],
       ),
     );
+    print(_controller.value);
+    print(_menuController.value);
     return Material(
       child: Stack(
         children: <Widget>[
@@ -390,14 +399,15 @@ class _BackdropState extends State<Backdrop>
               ],
             ),
           ),
-          _targetOpacity == 1.0 ?
+          _menuStatus == MenuStatus.showMenu ?
           FadeTransition(
-            opacity: _controller,
-            child: AnimatedOpacity(
+            opacity: _menuController,
+            child: _buildMenu(context)
+            /*child: AnimatedOpacity(
               opacity: 1.0,
               child: _buildMenu(context),
               duration: Duration(milliseconds: 500),
-            )
+            )*/
           ) : Container(),
         ],
       ),
@@ -419,6 +429,7 @@ class _BackdropState extends State<Backdrop>
               ),
               onPressed: (){
                 setState(() {
+                  _menuController.reverse();
                   _targetOpacity = 0.0;
                   _menuStatus = MenuStatus.hideMenu;
                 });
