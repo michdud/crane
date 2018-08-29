@@ -212,12 +212,14 @@ class _BackdropState extends State<Backdrop>
       ).animate(_controller.view);
     }
     else if (_menuStatus == MenuStatus.showMenu && _showForm) {
+      // animate from open form height to menu open height
       layerAnimation = RelativeRectTween(
         begin: RelativeRect.fromLTRB(0.0, layerTop, 0.0, 0.0),
         end: RelativeRect.fromLTRB(0.0, 550.0, 0.0, 0.0),
       ).animate(_controller.view);
     }
     else { // _menuStatus == MenuStatus.showMenu && !_showForm
+      // animate from closed form height to menu open height
       layerAnimation = RelativeRectTween(
         begin: RelativeRect.fromLTRB(0.0, 0.0, 0.0, 0.0),
         end: RelativeRect.fromLTRB(0.0, 550.0, 0.0, 0.0),
@@ -295,6 +297,7 @@ class _BackdropState extends State<Backdrop>
         setState(() {
           _menuStatus = MenuStatus.toggleForm;
           _showForm = !_showForm;
+          _controller.forward();
         });
       }
       else {
@@ -303,6 +306,7 @@ class _BackdropState extends State<Backdrop>
           setState(() {
             _menuStatus = MenuStatus.toggleForm;
             _showForm = !_showForm;
+            _controller.reverse();
           });
         }
       }
@@ -325,6 +329,7 @@ class _BackdropState extends State<Backdrop>
                   _targetOpacity = 1.0;
                   _menuStatus = MenuStatus.showMenu;
                   _menuController.forward();
+                  _controller.forward();
                 });
               },
             ),
@@ -377,8 +382,9 @@ class _BackdropState extends State<Backdrop>
         ],
       ),
     );
-    print(_controller.value);
-    print(_menuController.value);
+    print("controller: ${_controller.value}");
+    print("menu: ${_menuController.value}");
+    print(_menuController.status);
     return Material(
       child: Stack(
         children: <Widget>[
@@ -399,19 +405,22 @@ class _BackdropState extends State<Backdrop>
               ],
             ),
           ),
-          _menuStatus == MenuStatus.showMenu ?
-          FadeTransition(
-            opacity: _menuController,
-            child: _buildMenu(context)
-            /*child: AnimatedOpacity(
-              opacity: 1.0,
-              child: _buildMenu(context),
-              duration: Duration(milliseconds: 500),
-            )*/
-          ) : Container(),
+          AnimatedBuilder(
+            animation: _menuController,
+            child: _buildMenu(context),
+            builder: _buildMenuTransition,
+          ),
         ],
       ),
     );
+  }
+
+  Widget _buildMenuTransition(BuildContext context, Widget child) {
+    return _menuController.status != AnimationStatus.dismissed ?
+        FadeTransition(
+          opacity: _menuController,
+          child: child,
+        ) : Container();
   }
 
   Widget _buildMenu(BuildContext context) {
@@ -432,6 +441,7 @@ class _BackdropState extends State<Backdrop>
                   _menuController.reverse();
                   _targetOpacity = 0.0;
                   _menuStatus = MenuStatus.hideMenu;
+                  //_controller.reverse();
                 });
               }
             ),
