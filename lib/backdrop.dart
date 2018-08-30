@@ -156,7 +156,7 @@ class _BackdropState extends State<Backdrop>
     super.initState();
     _controller = AnimationController(
       duration: Duration(milliseconds: 300),
-      value: 1.0,
+      value: 0.0,
       vsync: this,
     );
     _menuController = AnimationController(
@@ -181,7 +181,10 @@ class _BackdropState extends State<Backdrop>
   }
 
   void _flingFrontLayer() {
-    _controller.fling(velocity: _kFlingVelocity);
+    print('fling');
+    _controller.fling(
+        velocity: _frontLayerVisible ? -_kFlingVelocity : _kFlingVelocity);
+    //_controller.fling(velocity: _kFlingVelocity);
   }
 
   Animation<RelativeRect> _buildLayerAnimation (BuildContext context, double layerTop) {
@@ -293,20 +296,23 @@ class _BackdropState extends State<Backdrop>
 
   Widget _buildMainApp(BuildContext context) {
     void handleTabs (var tabIndex) {
+      print('pressed');
       if (_tabController.index == tabIndex) {
+        // if tapped on the tab that's already open
         setState(() {
+          _flingFrontLayer();
           _menuStatus = MenuStatus.toggleForm;
-          _showForm = !_showForm;
-          _controller.forward();
+        //  _showForm = !_showForm;
         });
       }
       else {
+        // if tapped on a different tab
         _tabController.animateTo(tabIndex);
         if (!_showForm) {
           setState(() {
-            _menuStatus = MenuStatus.toggleForm;
-            _showForm = !_showForm;
-            _controller.reverse();
+            //_menuStatus = MenuStatus.toggleForm;
+            //_showForm = !_showForm;
+            //_controller.reverse();
           });
         }
       }
@@ -325,11 +331,12 @@ class _BackdropState extends State<Backdrop>
             child: IconButton(
               icon: Icon(Icons.menu),
               onPressed: () {
+                print(_showForm);
                 setState(() {
                   _targetOpacity = 1.0;
                   _menuStatus = MenuStatus.showMenu;
                   _menuController.forward();
-                  _controller.forward();
+                  //_flingFrontLayer();
                 });
               },
             ),
@@ -384,7 +391,7 @@ class _BackdropState extends State<Backdrop>
     );
     print("controller: ${_controller.value}");
     print("menu: ${_menuController.value}");
-    print(_menuController.status);
+
     return Material(
       child: Stack(
         children: <Widget>[
@@ -438,10 +445,11 @@ class _BackdropState extends State<Backdrop>
               ),
               onPressed: (){
                 setState(() {
+                  _menuStatus = MenuStatus.hideMenu;
                   _menuController.reverse();
                   _targetOpacity = 0.0;
-                  _menuStatus = MenuStatus.hideMenu;
-                  //_controller.reverse();
+
+                  //_flingFrontLayer();
                 });
               }
             ),
