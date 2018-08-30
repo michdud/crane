@@ -22,12 +22,12 @@ import 'app.dart';
 import 'colors.dart';
 //import 'menu_page.dart';
 
-enum MenuStatus { showMenu, hideMenu, toggleForm }
-
+enum MenuStatus { open, closed }
+enum FrontLayerStatus { open, partial, closed }
 
 double _kFlingVelocity = 2.0;
-MenuStatus _menuStatus = MenuStatus.toggleForm;
-bool _showForm = true;
+MenuStatus _menuStatus = MenuStatus.closed;
+
 
 class _FrontLayer extends StatelessWidget {
   const _FrontLayer({
@@ -42,36 +42,32 @@ class _FrontLayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      elevation: 16.0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(16.0),
-          topRight: Radius.circular(16.0)
+        elevation: 16.0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(16.0), topRight: Radius.circular(16.0)),
         ),
-      ),
-      child: ListView(
-        shrinkWrap: true,
-        padding: const EdgeInsets.all(20.0),
-        children: _buildFlightCards(context),
-      )
-    );
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.all(20.0),
+          children: _buildFlightCards(context),
+        ));
   }
 
   List<Card> _buildFlightCards(BuildContext context) {
     List<Flight> flights = getFlights(Category.findTrips);
     return flights.map((flight) {
       return Card(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            ListTile(
-              leading: Icon(Icons.album),
-              title: Text(flight.destination),
-              subtitle: Text(flight.layover ? 'Layover' : 'Nonstop'),
-            ),
-          ],
-        )
-      );
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ListTile(
+                leading: Icon(Icons.album),
+                title: Text(flight.destination),
+                subtitle: Text(flight.layover ? 'Layover' : 'Nonstop'),
+              ),
+            ],
+          ));
     }).toList();
   }
 }
@@ -142,14 +138,12 @@ class Backdrop extends StatefulWidget {
   _BackdropState createState() => _BackdropState();
 }
 
-class _BackdropState extends State<Backdrop>
-    with TickerProviderStateMixin {
-
+class _BackdropState extends State<Backdrop> with TickerProviderStateMixin {
   final GlobalKey _backdropKey = GlobalKey(debugLabel: 'Backdrop');
   AnimationController _controller;
-  AnimationController _menuController;
   TabController _tabController;
-  var _targetOpacity;
+  FrontLayerStatus _prevFrontLayerStatus;
+  FrontLayerStatus _frontLayerStatus;
 
   @override
   void initState() {
@@ -159,13 +153,9 @@ class _BackdropState extends State<Backdrop>
       value: 0.0,
       vsync: this,
     );
-    _menuController = AnimationController(
-      duration: Duration(milliseconds: 300),
-      value: 0.0,
-      vsync: this
-    );
-    _targetOpacity = 0.0;
     _tabController = TabController(length: 3, vsync: this);
+    _prevFrontLayerStatus = FrontLayerStatus.partial;
+    _frontLayerStatus = FrontLayerStatus.partial;
   }
 
   @override
@@ -181,64 +171,52 @@ class _BackdropState extends State<Backdrop>
   }
 
   void _flingFrontLayer() {
-    print('fling');
     _controller.fling(
         velocity: _frontLayerVisible ? -_kFlingVelocity : _kFlingVelocity);
-    //_controller.fling(velocity: _kFlingVelocity);
   }
 
-  Animation<RelativeRect> _buildLayerAnimation (BuildContext context, double layerTop) {
+  Animation<RelativeRect> _buildLayerAnimation(
+      BuildContext context, double layerTop) {
     Animation<RelativeRect> layerAnimation;
+    RelativeRect begin;
+    RelativeRect end;
 
-    if (_menuStatus == MenuStatus.toggleForm && _showForm) {
-      layerAnimation = RelativeRectTween(
-        begin: RelativeRect.fromLTRB(0.0, 0.0, 0.0, 0.0),
-        end: RelativeRect.fromLTRB(0.0, layerTop, 0.0, 0.0),
-      ).animate(_controller.view);
+    /// closed: RelativeRect.fromLTRB(0.0, 0.0, 0.0, 0.0),
+    /// partial: RelativeRect.fromLTRB(0.0, layerTop, 0.0, 0.0),
+    ///
+    /// menu open: RelativeRect.fromLTRB(0.0, 550.0, 0.0, 0.0),
+
+    if(_prevFrontLayerStatus == FrontLayerStatus.partial) {
+      begin = RelativeRect.fromLTRB(0.0, layerTop, 0.0, 0.0);
+    } else if(_prevFrontLayerStatus == FrontLayerStatus.closed) {
+      begin = RelativeRect.fromLTRB(0.0, 0.0, 0.0, 0.0);
+    } else {
+      begin = RelativeRect.fromLTRB(0.0, 550.0, 0.0, 0.0);
     }
-    else if (_menuStatus == MenuStatus.toggleForm && !_showForm) {
-      layerAnimation = RelativeRectTween(
-        begin: RelativeRect.fromLTRB(0.0, layerTop, 0.0, 0.0),
-        end: RelativeRect.fromLTRB(0.0, 0.0, 0.0, 0.0),
-      ).animate(_controller.view);
+
+    if(_frontLayerStatus == FrontLayerStatus.partial) {
+      end = RelativeRect.fromLTRB(0.0, layerTop, 0.0, 0.0);
+    } else if (_frontLayerStatus == FrontLayerStatus.closed) {
+      end = RelativeRect.fromLTRB(0.0, 0.0, 0.0, 0.0);
+    } else {
+      end = RelativeRect.fromLTRB(0.0, 550.0, 0.0, 0.0);
     }
-    else if (_menuStatus == MenuStatus.hideMenu && _showForm) {
-      layerAnimation = RelativeRectTween(
-        begin: RelativeRect.fromLTRB(0.0, 550.0, 0.0, 0.0),
-        end: RelativeRect.fromLTRB(0.0, layerTop, 0.0, 0.0),
-      ).animate(_controller.view);
-    }
-    else if (_menuStatus == MenuStatus.hideMenu && !_showForm) {
-      layerAnimation = RelativeRectTween(
-        begin: RelativeRect.fromLTRB(0.0, 550.0, 0.0, 0.0),
-        end: RelativeRect.fromLTRB(0.0, 0.0, 0.0, 0.0),
-      ).animate(_controller.view);
-    }
-    else if (_menuStatus == MenuStatus.showMenu && _showForm) {
-      // animate from open form height to menu open height
-      layerAnimation = RelativeRectTween(
-        begin: RelativeRect.fromLTRB(0.0, layerTop, 0.0, 0.0),
-        end: RelativeRect.fromLTRB(0.0, 550.0, 0.0, 0.0),
-      ).animate(_controller.view);
-    }
-    else { // _menuStatus == MenuStatus.showMenu && !_showForm
-      // animate from closed form height to menu open height
-      layerAnimation = RelativeRectTween(
-        begin: RelativeRect.fromLTRB(0.0, 0.0, 0.0, 0.0),
-        end: RelativeRect.fromLTRB(0.0, 550.0, 0.0, 0.0),
-      ).animate(_controller.view);
-    }
+
+    layerAnimation = RelativeRectTween(
+      begin: begin,
+      end: end,
+    ).animate(_controller.view);
+
     return layerAnimation;
   }
 
   Widget _buildFlyStack(BuildContext context, BoxConstraints constraints) {
-    final double flyLayerTop = 271+.0;
+    final double flyLayerTop = 271 + .0;
 
     Animation<RelativeRect> flyLayerAnimation =
-        _buildLayerAnimation(context, flyLayerTop);
+    _buildLayerAnimation(context, flyLayerTop);
 
     return Stack(
-//      key: _backdropKey,
       children: <Widget>[
         widget.backLayer[0],
         PositionedTransition(
@@ -253,13 +231,12 @@ class _BackdropState extends State<Backdrop>
   }
 
   Widget _buildSleepStack(BuildContext context, BoxConstraints constraints) {
-    final double sleepLayerTop = 205+.0;
+    final double sleepLayerTop = 205 + .0;
 
     Animation<RelativeRect> sleepLayerAnimation =
-        _buildLayerAnimation(context, sleepLayerTop);
+    _buildLayerAnimation(context, sleepLayerTop);
 
     return Stack(
-//      key: _backdropKey,
       children: <Widget>[
         widget.backLayer[1],
         PositionedTransition(
@@ -274,20 +251,19 @@ class _BackdropState extends State<Backdrop>
   }
 
   Widget _buildEatStack(BuildContext context, BoxConstraints constraints) {
-    final double eatLayerTop = 271+.0;
+    final double eatLayerTop = 271 + .0;
 
     Animation<RelativeRect> eatLayerAnimation =
     _buildLayerAnimation(context, eatLayerTop);
 
     return Stack(
-//      key: _backdropKey,
       children: <Widget>[
         widget.backLayer[2],
         PositionedTransition(
           rect: eatLayerAnimation,
           child: _FrontLayer(
             onTap: _flingFrontLayer,
-              child: widget.frontLayer,
+            child: widget.frontLayer,
           ),
         ),
       ],
@@ -295,26 +271,23 @@ class _BackdropState extends State<Backdrop>
   }
 
   Widget _buildMainApp(BuildContext context) {
-    void handleTabs (var tabIndex) {
-      print('pressed');
+    print(_frontLayerStatus);
+    void handleTabs(var tabIndex) {
       if (_tabController.index == tabIndex) {
         // if tapped on the tab that's already open
         setState(() {
+/*          if(_frontLayerStatus == FrontLayerStatus.closed) {
+            _frontLayerStatus = FrontLayerStatus.partial;
+            _prevFrontLayerStatus = FrontLayerStatus.closed;
+          } else {
+            _frontLayerStatus = FrontLayerStatus.closed;
+            _prevFrontLayerStatus = FrontLayerStatus.partial;
+          }*/
           _flingFrontLayer();
-          _menuStatus = MenuStatus.toggleForm;
-        //  _showForm = !_showForm;
         });
-      }
-      else {
+      } else {
         // if tapped on a different tab
         _tabController.animateTo(tabIndex);
-        if (!_showForm) {
-          setState(() {
-            //_menuStatus = MenuStatus.toggleForm;
-            //_showForm = !_showForm;
-            //_controller.reverse();
-          });
-        }
       }
     }
 
@@ -331,13 +304,14 @@ class _BackdropState extends State<Backdrop>
             child: IconButton(
               icon: Icon(Icons.menu),
               onPressed: () {
-                print(_showForm);
+                print('before: $_prevFrontLayerStatus, $_frontLayerStatus');
                 setState(() {
-                  _targetOpacity = 1.0;
-                  _menuStatus = MenuStatus.showMenu;
-                  _menuController.forward();
-                  //_flingFrontLayer();
+                  _menuStatus = MenuStatus.open;
+                  _prevFrontLayerStatus = _frontLayerStatus;
+                  _frontLayerStatus = FrontLayerStatus.open;
                 });
+                _flingFrontLayer();
+                print('after: $_prevFrontLayerStatus, $_frontLayerStatus');
               },
             ),
           ),
@@ -389,8 +363,6 @@ class _BackdropState extends State<Backdrop>
         ],
       ),
     );
-    print("controller: ${_controller.value}");
-    print("menu: ${_menuController.value}");
 
     return Material(
       child: Stack(
@@ -413,7 +385,7 @@ class _BackdropState extends State<Backdrop>
             ),
           ),
           AnimatedBuilder(
-            animation: _menuController,
+            animation: _controller,
             child: _buildMenu(context),
             builder: _buildMenuTransition,
           ),
@@ -423,11 +395,12 @@ class _BackdropState extends State<Backdrop>
   }
 
   Widget _buildMenuTransition(BuildContext context, Widget child) {
-    return _menuController.status != AnimationStatus.dismissed ?
-        FadeTransition(
-          opacity: _menuController,
-          child: child,
-        ) : Container();
+    return _frontLayerStatus == FrontLayerStatus.open//TODO: check animation status and menu open / close status
+        ? FadeTransition(
+      opacity: _controller,
+      child: child,
+    )
+        : Container();
   }
 
   Widget _buildMenu(BuildContext context) {
@@ -439,20 +412,20 @@ class _BackdropState extends State<Backdrop>
         child: ListView(
           children: <Widget>[
             IconButton(
-              icon: Icon(
-                Icons.arrow_back,
-                semanticLabel: 'back',
-              ),
-              onPressed: (){
-                setState(() {
-                  _menuStatus = MenuStatus.hideMenu;
-                  _menuController.reverse();
-                  _targetOpacity = 0.0;
-
-                  //_flingFrontLayer();
-                });
-              }
-            ),
+                icon: Icon(
+                  Icons.arrow_back,
+                  semanticLabel: 'back',
+                ),
+                onPressed: () {
+                  print('back arrow before: $_prevFrontLayerStatus, $_frontLayerStatus');
+                  setState(() {
+                    _menuStatus = MenuStatus.closed;
+                    _frontLayerStatus = _prevFrontLayerStatus;
+                    _prevFrontLayerStatus = _prevFrontLayerStatus == FrontLayerStatus.closed ? FrontLayerStatus.partial : FrontLayerStatus.closed;
+                    _controller.forward();
+                  });
+                  print('back arrow after: $_prevFrontLayerStatus, $_frontLayerStatus');
+                }),
             Text('Find Trips'),
             Text('My Trips'),
             Text('Saved Trips'),
